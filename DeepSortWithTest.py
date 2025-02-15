@@ -165,9 +165,11 @@ def min_cost_matching(distance_metric, max_distance, tracks, detections, track_i
     cost_matrix = np.array(distance_metric(tracks, detections, track_indices, detection_indices))
     cost_matrix[cost_matrix > max_distance] = max_distance + 1e-5
     indices = linear_assignment(cost_matrix)
+    print(f'Indices Pre-ReShape: {indices}')
     row_indices, col_indices = indices
     indices = np.asarray(indices).reshape(-1, 2)
     print(f'indicies: {len(indices)}')
+    print(f'Indices: {indices}')
     matches, unmatched_tracks, unmatched_detections = [], [], []
 
     for col, detection_idx in enumerate(detection_indices):
@@ -177,6 +179,8 @@ def min_cost_matching(distance_metric, max_distance, tracks, detections, track_i
       if row not in row_indices:
         unmatched_tracks.append(track_idx)
     for row, col in indices:
+      print(f"len dets: {len(detection_indices)} | len tracks: {len(track_indices)}")
+      print(f"row: {row} | col: {col}")
       track_idx = track_indices[row]
       detection_idx = detection_indices[col]
       if cost_matrix[row, col] > max_distance:
@@ -443,7 +447,7 @@ import numpy as np
 
 class Tracker:
 
-  def __init__(self, metric, max_iou_distance=0.9, max_age = 30, n_init=2):
+  def __init__(self, metric, max_iou_distance=0.9, max_age = 100, n_init=2):
     self.metric = metric
     self.max_iou_distance = max_iou_distance
     self.max_age = max_age
@@ -636,8 +640,17 @@ def preprocess_my_image(frame):
     img = np.expand_dims(img, axis=0)      # Add batch dimension
     return img
 
+from collections import defaultdict
+stored_object_tracks = defaultdict(list)
+# Dict Key: (ID, Class) Value: List[ (frame, bbox) ]
 
-
+def class_from_num(cls):
+  if cls == 0.0:
+    return 'Fish'
+  elif cls ==1.0:
+    return 'Shark'
+  else:
+    return 'Turtle'
 
 def process_video(video_path, output_path=None):
     # Load video
@@ -698,10 +711,12 @@ def process_video(video_path, output_path=None):
 
           # Draw the bounding box and track ID
           print(f"Drawing bounding box: {x1}, {y1}, {w}, {h}")  # Add this line for debugging
-          cv2.rectangle(frame, (x1, y1), (x1 + w, y1 + h), (0, 255, 0), 2)
+          cv2.rectangle(frame, (x1, y1), (x1 + w, y1 + h), (0, 255, 0), 5)
   
           print(f"Drawing track ID: {track.track_id} Class: {track.cls}")  # Add this line for debugging
-          cv2.putText(frame, f"ID: {track.track_id} Class: {track.cls}",  (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 0, 0), 2)
+          cv2.putText(frame, f"ID: {track.track_id} Class: {track.cls}",  (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 255), 3)
+
+          stored_object_tracks[(f'{track.track_id}', class_from_num(track.cls))].append((frame_count, list([x1, y1, x1+w, y1+h])))
 
         # Save the output frame if needed
         if output_path is not None:
@@ -719,11 +734,81 @@ def process_video(video_path, output_path=None):
 
 # Run the function on video
 
-input_video = 'C:/Users/akans/OneDrive/Desktop/VSCode/Two_Sharks_Video.mp4'
-output_vid_path = 'C:/Users/akans/OneDrive/Desktop/VSCode/Two_Sharks_Video_Post_DeepSORT(1).mp4'
+input_video = 'C:/Users/akans/OneDrive/Desktop/VSCode/Two_Turtles_Vid1.mp4'
+output_vid_path = 'C:/Users/akans/OneDrive/Desktop/VSCode/Two_Turtles_Vid1_With_Report(1).mp4'
 process_video(input_video, output_vid_path)
-'''
-input_video2 = 'C:/Users/akans/OneDrive/Desktop/VSCode/Turtle_Video_From_Field.mp4'
-output_vid_path2 = 'C:/Users/akans/OneDrive/Desktop/VSCode/Turtle_Video_Field_Post_DeepSORT(1).mp4'
-process_video(input_video2, output_vid_path2)
-'''
+
+def compute_iou(coords1, coords2):
+  Px1, Py1, Px2, Py2 = coords1[0], coords1[1], coords1[2], coords1[3]
+  Cx1, Cy1, Cx2, Cy2 = coords2[0], coords2[1], coords2[2], coords2[3]
+  box1_area = abs((Px2 - Px1) * (Py2 - Py1))
+  box2_area = abs((Cx2 - Cx1) * (Cy2 - Cy1))
+
+  tl = [max(Px1, Cx1), max(Py1, Cy1)]
+  br = [min(Px2, Cx2), min(Py2, Cy2)]
+  intersection_area = abs( (br[0] - tl[0]) * (br[1] - tl[1]) )
+  if box1_area + box2_area - intersection_area ==0:
+    return 0
+  else:
+    return intersection_area / (box1_area + box2_area - intersection_area)
+
+def get_IoUs_accros_Frames(frameTracks):
+  object_IoUs = defaultdict(list)
+  #Dict Key (ID, Class) Value: List[ (frame, IoU) ]
+
+  for key in frameTracks.keys():
+    obj = frameTracks[key]
+    #Get the coords of the first Box
+    init_coords = obj[0][1]
+    # 0 is first in List of tuples and 1 is the bbox
+
+    for tup in obj:
+      coords_obj = tup[1]
+      IoU_temp = compute_iou(init_coords, coords_obj)
+      object_IoUs[key].append((tup[0], IoU_temp))
+  
+  return object_IoUs
+
+
+def generate_report(IoU_Dict):
+  num_fish_caught = 0
+  num_sharks_caught = 0
+  num_turtles_caught = 0
+
+  for key in IoU_Dict:
+    obj = IoU_Dict[key]
+    IoUs_in_frames = [tup[1] for tup in obj]
+    if min(IoUs_in_frames) > 0.5:
+      if key[1] == 'Fish':
+        num_fish_caught += 1
+      elif key[1] == 'Shark':
+        num_sharks_caught += 1
+      elif key[1] == 'Turtle':
+        num_turtles_caught += 1
+  
+  print(f'Number of Fish / Target Catch Size: {num_fish_caught}')
+  print(f'Number of Sharks Caught: {num_sharks_caught}')
+  print(f'Number of Turtles Caught: {num_turtles_caught}')
+  print(f'Total Bycatch: {num_sharks_caught + num_turtles_caught}')
+
+generate_report(get_IoUs_accros_Frames(stored_object_tracks))
+
+IoU_Dict = get_IoUs_accros_Frames(stored_object_tracks)
+
+for key in IoU_Dict:
+  obj = IoU_Dict[key]
+  iou_over_time = [obj[i][1] for i in range(len(obj))]
+  frames = [obj[i][0] for i in range(len(obj))]
+  plt.plot(frames, iou_over_time, label=f'IoU of {key[1]} ID: {key[0]}', color="Blue")
+
+  plt.xlabel("Frame")
+  plt.ylabel("IoU Against First Appearance")
+  plt.title("Motion Tracking through IoU")
+  plt.axhline(0, color='black',linewidth=0.5)
+  plt.axvline(0, color='black',linewidth=0.5)
+  plt.grid(color = 'gray', linestyle = '--', linewidth = 0.5)
+  plt.legend()
+
+
+  plt.show()
+  plt.savefig('C:/Users/akans/OneDrive/Desktop/VSCode/Two_Turtles_Vid1_IoU_Graph')
