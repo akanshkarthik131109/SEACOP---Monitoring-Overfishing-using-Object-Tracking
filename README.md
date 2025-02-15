@@ -1,4 +1,4 @@
-<h1>** SEACOP: Using Machine Learning and Underwater Submersibles to Monitor Overfishing and Bycatch**</h1>
+<h1>SEACOP: Using Machine Learning and Underwater Submersibles to Monitor Overfishing and Bycatch</h1>
 <h2> Problem </h2>
 Overfishing refers to the practice of catching fish at a rate faster than they can naturally reproduce, leading to the depletion of fish populations. This practice threatens the sustainability of fisheries and marine ecosystems, as it can cause species populations to collapse and disrupt the balance of the marine food web. The decline in fish stocks has far-reaching ecological, economic, and social consequences, affecting biodiversity, ecosystem health, and livelihoods dependent on fisheries.
 
@@ -15,7 +15,7 @@ Overfishing poses significant problems for both marine ecosystems and human soci
 
 5. Difficulties in Fishery Management: Political and economic incentives often complicate efforts to reduce fishing pressure, even when there is clear scientific evidence of overexploitation. This results in slow policy response and continued resource depletion.
 
-<h2> Proposed Solution <h2>
+<h2> Proposed Solution </h2>
 
 SEACOP Aims to provide a Hollistic End to End Monitoring Solution for overfishing. The first step utilizes Underwater Submersibles to record video footage of fishing nets. This footage is then analysed by an Object Tracker which will track all the fish(Target Catch), Sharks(Bycatch), and Turtles(Bycatch) present in the video. Moving objects are excluded from the final report as they are likley not actually caught in the fishing nets. This monitoring solution will enable reuglators to better enforce fishing regulations as current methods rely on Cooperation of Fishermen or the use of Fisheries observes, both of which can be unreliable especially when dealing with IUU(Illegal, Underreported, and Unregulated) fishing.
   
