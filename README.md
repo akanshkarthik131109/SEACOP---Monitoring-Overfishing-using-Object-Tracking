@@ -21,3 +21,36 @@ SEACOP Aims to provide a Hollistic End to End Monitoring Solution for overfishin
   
 <h2>Contents of the Repository</h2>
 This repo contains my customized implementation of the DeepSORT Algorithm. The algorithm uses a YOLO11 model I trained on a custom Dataset to identify Fish, Sharks and Turtles. By levaraging Object Tracking this algorithm is able to monitor Catch Size and Bycatch. The program also uses Compares the intersection over union of each object found in the video as the video frames progress. By graphing IoU over time the program is able to classify if the objects are moving or if they are still. This functionality is to help the program decide if the object is caught in a finshing net or not. 
+
+The Dataset used to train the YOLO Object detector was custom curated and custom annotated, sources of the raw images are listed in the citations. 
+Here is the Link to the Dataset I made for this project: https://www.kaggle.com/datasets/akanshkarthik/overfishing-object-detection-dataset
+
+<strong>Citations</strong>
+
+Incorporated, Bajan Digital Creations. “Blue Bot Dataset: Atlantic Tang.” Kaggle, 6 Nov. 2020, www.kaggle.com/datasets/hiyaro/atlantictang.
+
+Incorporated, B. D. C. (2020, November 6). Blue Bot Dataset: Fish body plans. Kaggle. https://www.kaggle.com/datasets/hiyaro/fishbodyplans
+
+Lautaro. (2020, October 30). Shark species. Kaggle. https://www.kaggle.com/datasets/larusso94/shark-species/data
+
+Wildlifedatasets. “SEATURTLEID2022.” Kaggle, 7 Feb. 2024, www.kaggle.com/datasets/wildlifedatasets/seaturtleid2022.
+
+@inproceedings{Wojke2017simple,
+  title={Simple Online and Realtime Tracking with a Deep Association Metric},
+  author={Wojke, Nicolai and Bewley, Alex and Paulus, Dietrich},
+  booktitle={2017 IEEE International Conference on Image Processing (ICIP)},
+  year={2017},
+  pages={3645--3649},
+  organization={IEEE},
+  doi={10.1109/ICIP.2017.8296962}
+}
+
+@inproceedings{Wojke2018deep,
+  title={Deep Cosine Metric Learning for Person Re-identification},
+  author={Wojke, Nicolai and Bewley, Alex},
+  booktitle={2018 IEEE Winter Conference on Applications of Computer Vision (WACV)},
+  year={2018},
+  pages={748--756},
+  organization={IEEE},
+  doi={10.1109/WACV.2018.00087}
+}
