@@ -166,22 +166,37 @@ def min_cost_matching(distance_metric, max_distance, tracks, detections, track_i
     cost_matrix[cost_matrix > max_distance] = max_distance + 1e-5
     indices = linear_assignment(cost_matrix)
     print(f'Indices Pre-ReShape: {indices}')
+    #indices = np.asarray(indices).reshape(-1, 2, copy=True)
+
     row_indices, col_indices = indices
-    indices = np.asarray(indices).reshape(-1, 2)
+    indices_temp = []
+    for i in range(len(row_indices)):
+      indices_temp.append([row_indices[i], col_indices[i]])
+    indices = np.array(indices_temp)
     print(f'indicies: {len(indices)}')
     print(f'Indices: {indices}')
     matches, unmatched_tracks, unmatched_detections = [], [], []
 
+    print(f'Detection Indicies: {detection_indices}') # Enumerate det indices(0, 0) (1, 1)
     for col, detection_idx in enumerate(detection_indices):
-      if col not in col_indices:
+      if col not in indices[:, 1]:
         unmatched_detections.append(detection_idx)
+
+    print(f'Track Indicies: {track_indices}')
     for row, track_idx in enumerate(track_indices):
-      if row not in row_indices:
+     # print(f'Row: {row}')
+    #  print(f'Row Indicies: {row_indices}')
+      if row not in indices[:, 0]:
         unmatched_tracks.append(track_idx)
+      '''
+      [[0, 2], [1, 0]]
+      detectrion_indices = [0, 1]
+      '''
     for row, col in indices:
       print(f"len dets: {len(detection_indices)} | len tracks: {len(track_indices)}")
       print(f"row: {row} | col: {col}")
       track_idx = track_indices[row]
+      print(f'col: {col}')
       detection_idx = detection_indices[col]
       if cost_matrix[row, col] > max_distance:
         unmatched_tracks.append(track_idx)
@@ -274,7 +289,9 @@ def iou_cost(tracks, detections, track_indices=None, detection_indices=None):
     track_indices = np.arange(len(tracks))
   if detection_indices is None:
     detection_indices = np.arange(len(detections))
-
+  print(f"Tracks: {len(tracks)} | Tracks Indicies: {len(track_indices)}")
+  print(f"Dets: {len(detections)} | Detection Indicies: {len(detection_indices)}")
+  print(f'dets: {detection_indices}')
   cost_matrix = np.zeros((len(track_indices), len(detection_indices)))
   for row, track_idx in enumerate(track_indices):
     if tracks[track_idx].time_since_update > 1:
@@ -287,7 +304,16 @@ def iou_cost(tracks, detections, track_indices=None, detection_indices=None):
     candidates = np.asarray([detections[i].tlwh for i in detection_indices])
     classes = np.asarray([detections[i].cls for i in detection_indices])
     cost_matrix[row, :] = 1. - iou(bbox, wanted_class, candidates, classes)
-
+  '''
+  if cost_matrix.shape[0] != cost_matrix.shape[1]:
+    max_dim = max(cost_matrix.shape[0], cost_matrix.shape[1])
+    max_cost_matrix_val = np.max(cost_matrix)
+    new_rows = np.full((max_dim - cost_matrix.shape[0], max_dim), max_cost_matrix_val, dtype=np.float32)
+    new_cols = np.full((max_dim, max_dim - cost_matrix.shape[1]), max_cost_matrix_val, dtype=np.float32)
+    cost_matrix = np.append(cost_matrix, new_rows, axis=0)
+    cost_matrix = np.append(cost_matrix, new_cols, axis=1)
+'''
+  cost_matrix = np.subtract(np.max(cost_matrix), cost_matrix)  
   return cost_matrix
 
 '''
@@ -502,7 +528,7 @@ class Tracker:
       targets = np.array([tracks[i].track_id for i in track_indices])
       cost_matrix = self.metric.distance(features, targets)
       print(f"Cost Matrix Init Shape: {cost_matrix.shape}")
-      cost_matrix = linear_assignment(gate_cost_matrix(self.kf, cost_matrix, tracks, dets, track_indices, detection_indices))
+      cost_matrix = gate_cost_matrix(self.kf, cost_matrix, tracks, dets, track_indices, detection_indices)
 
       return cost_matrix
 
@@ -595,7 +621,7 @@ def hook_fn(module, input, output):
     intermediate_features.append(output)
 
 # Define feature extraction function
-def extract_features(model, img, layer_index=20): ##Choose the layer that fit your application
+def extract_features(model, img, layer_index=20): 
     global intermediate_features
     intermediate_features = []
     print(f"Input shape before forward pass: {img.shape}")
@@ -684,7 +710,7 @@ def process_video(video_path, output_path=None):
           #Maybe also create a subset image where it is just the area in the bbox coords before passing though feature extractor
           cropped_bbox_img = frame[int(y1):int(y2), int(x1):int(x2)]
           cropped_bbox_img = preprocess_image(cropped_bbox_img)
-          feature = extract_features(model, preprocess_image(frame), layer_index=20)
+          feature = extract_features(model, preprocess_image(frame), layer_index=20).reshape(-1, 1)
           det = Detection(bbox, conf, feature, cls)
           detections.append(det)  # Use detection class
 
@@ -734,8 +760,8 @@ def process_video(video_path, output_path=None):
 
 # Run the function on video
 
-input_video = 'C:/Users/akans/OneDrive/Desktop/VSCode/Two_Turtles_Vid1.mp4'
-output_vid_path = 'C:/Users/akans/OneDrive/Desktop/VSCode/Two_Turtles_Vid1_With_Report(1).mp4'
+input_video = 'C:/Users/akans/OneDrive/Desktop/VSCode/Turtle+Jellyfish.mp4'
+output_vid_path = 'C:/Users/akans/OneDrive/Desktop/VSCode/Turtle+Jellyfish_with_Report(1).mp4'
 process_video(input_video, output_vid_path)
 
 def compute_iou(coords1, coords2):
@@ -778,6 +804,8 @@ def generate_report(IoU_Dict):
   for key in IoU_Dict:
     obj = IoU_Dict[key]
     IoUs_in_frames = [tup[1] for tup in obj]
+    if len(IoUs_in_frames) < 80:
+      continue
     if min(IoUs_in_frames) > 0.5:
       if key[1] == 'Fish':
         num_fish_caught += 1
@@ -794,7 +822,7 @@ def generate_report(IoU_Dict):
 generate_report(get_IoUs_accros_Frames(stored_object_tracks))
 
 IoU_Dict = get_IoUs_accros_Frames(stored_object_tracks)
-
+print(f'Len of Keys/Objects: {len(IoU_Dict.keys())}')
 for key in IoU_Dict:
   obj = IoU_Dict[key]
   iou_over_time = [obj[i][1] for i in range(len(obj))]
@@ -811,4 +839,4 @@ for key in IoU_Dict:
 
 
   plt.show()
-  plt.savefig('C:/Users/akans/OneDrive/Desktop/VSCode/Two_Turtles_Vid1_IoU_Graph')
+  plt.savefig('C:/Users/akans/OneDrive/Desktop/VSCode/Two_Still_Fish(1)_IoU_Graph')
